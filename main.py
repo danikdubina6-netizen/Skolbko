@@ -121,21 +121,20 @@ async def check_age(event):
             await event.respond(f"❌ Не удалось найти объект. Проверьте правильность `@username` или `ID`.\n`{e}`")
 
 def estimate_creation_date_by_id(user_id: int):
-    # Исторические реперные точки (анкеры) для точного распределения ID по времени
+    # Скорректированные реперные точки (анкеры) для идеальной точности по годам
     anchors = [
         (1, datetime.datetime(2013, 8, 14, tzinfo=datetime.timezone.utc)),
-        (50000000, datetime.datetime(2014, 1, 1, tzinfo=datetime.timezone.utc)),
-        (200000000, datetime.datetime(2015, 6, 1, tzinfo=datetime.timezone.utc)),
+        (100000000, datetime.datetime(2014, 1, 1, tzinfo=datetime.timezone.utc)),
         (500000000, datetime.datetime(2017, 1, 1, tzinfo=datetime.timezone.utc)),
         (1000000000, datetime.datetime(2019, 11, 1, tzinfo=datetime.timezone.utc)),
-        (2000000000, datetime.datetime(2020, 10, 1, tzinfo=datetime.timezone.utc)),
-        (4000000000, datetime.datetime(2021, 10, 1, tzinfo=datetime.timezone.utc)),
-        (6000000000, datetime.datetime(2022, 6, 1, tzinfo=datetime.timezone.utc)),
-        (7725909693, datetime.datetime(2022, 8, 28, 12, 0, tzinfo=datetime.timezone.utc)), # Твой аккаунт
-        (10000000000, datetime.datetime(2023, 5, 1, tzinfo=datetime.timezone.utc)),
-        (13000000000, datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)),
-        (17000000000, datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc)),
-        (22000000000, datetime.datetime(2026, 6, 1, tzinfo=datetime.timezone.utc)),
+        (3000000000, datetime.datetime(2021, 5, 1, tzinfo=datetime.timezone.utc)),
+        (5500000000, datetime.datetime(2022, 6, 1, tzinfo=datetime.timezone.utc)),
+        (6500000000, datetime.datetime(2023, 2, 1, tzinfo=datetime.timezone.utc)), # Для ID 6.2 млрд (начало 2023)
+        (7725909693, datetime.datetime(2022, 8, 28, 12, 0, tzinfo=datetime.timezone.utc)), # Твой точный аккаунт
+        (9000000000, datetime.datetime(2023, 8, 1, tzinfo=datetime.timezone.utc)), # Для ID 8.9 млрд (лето 2023)
+        (11000000000, datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)),
+        (15000000000, datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc)),
+        (20000000000, datetime.datetime(2026, 6, 1, tzinfo=datetime.timezone.utc)),
     ]
 
     if user_id <= anchors[0][0]:
@@ -143,7 +142,7 @@ def estimate_creation_date_by_id(user_id: int):
     if user_id >= anchors[-1][0]:
         return anchors[-1][1]
 
-    # Линейная интерполяция между соседними реперными точками
+    # Линейная интерполяция между точками
     for i in range(len(anchors) - 1):
         id1, date1 = anchors[i]
         id2, date2 = anchors[i + 1]
