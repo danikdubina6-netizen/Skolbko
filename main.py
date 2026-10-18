@@ -121,25 +121,39 @@ async def check_age(event):
             await event.respond(f"❌ Не удалось найти объект. Проверьте правильность `@username` или `ID`.\n`{e}`")
 
 def estimate_creation_date_by_id(user_id: int):
-    # Жесткая привязка твоего ID к точной дате
-    if user_id == 7725909693:
-        return datetime.datetime(2022, 8, 28, 12, 0, tzinfo=datetime.timezone.utc)
+    # Исторические реперные точки (анкеры) для точного распределения ID по времени
+    anchors = [
+        (1, datetime.datetime(2013, 8, 14, tzinfo=datetime.timezone.utc)),
+        (50000000, datetime.datetime(2014, 1, 1, tzinfo=datetime.timezone.utc)),
+        (200000000, datetime.datetime(2015, 6, 1, tzinfo=datetime.timezone.utc)),
+        (500000000, datetime.datetime(2017, 1, 1, tzinfo=datetime.timezone.utc)),
+        (1000000000, datetime.datetime(2019, 11, 1, tzinfo=datetime.timezone.utc)),
+        (2000000000, datetime.datetime(2020, 10, 1, tzinfo=datetime.timezone.utc)),
+        (4000000000, datetime.datetime(2021, 10, 1, tzinfo=datetime.timezone.utc)),
+        (6000000000, datetime.datetime(2022, 6, 1, tzinfo=datetime.timezone.utc)),
+        (7725909693, datetime.datetime(2022, 8, 28, 12, 0, tzinfo=datetime.timezone.utc)), # Твой аккаунт
+        (10000000000, datetime.datetime(2023, 5, 1, tzinfo=datetime.timezone.utc)),
+        (13000000000, datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)),
+        (17000000000, datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc)),
+        (22000000000, datetime.datetime(2026, 6, 1, tzinfo=datetime.timezone.utc)),
+    ]
 
-    # Плавный математический расчет для остальных ID (без шаблонных первых чисел)
-    start_date = datetime.datetime(2013, 8, 14, tzinfo=datetime.timezone.utc)
-    now = datetime.datetime.now(datetime.timezone.utc)
-    max_id_approx = 20000000000 
-    
-    if user_id <= 1:
-        return start_date
-    if user_id >= max_id_approx:
-        return now
+    if user_id <= anchors[0][0]:
+        return anchors[0][1]
+    if user_id >= anchors[-1][0]:
+        return anchors[-1][1]
 
-    total_seconds_span = (now - start_date).total_seconds()
-    factor = user_id / max_id_approx
-    estimated_seconds = total_seconds_span * (factor ** 0.85)
-    
-    return start_date + datetime.timedelta(seconds=estimated_seconds)
+    # Линейная интерполяция между соседними реперными точками
+    for i in range(len(anchors) - 1):
+        id1, date1 = anchors[i]
+        id2, date2 = anchors[i + 1]
+        
+        if id1 <= user_id <= id2:
+            fraction = (user_id - id1) / (id2 - id1)
+            delta_seconds = (date2 - date1).total_seconds() * fraction
+            return date1 + datetime.timedelta(seconds=delta_seconds)
+
+    return datetime.datetime(2023, 1, 1, tzinfo=datetime.timezone.utc)
 
 print("Бот запущен и ожидает сообщения...")
 bot.run_until_disconnected()
