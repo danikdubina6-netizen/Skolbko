@@ -25,48 +25,58 @@ def get_age_string(creation_date):
 
 @bot.on(events.NewMessage(pattern='/start'))
 async def start_handler(event):
-    # Кнопки со встроенным выбором через инлайн-режим (открывают меню выбора чатов/ботов)
-    buttons = [
-        [Button.inline("💬 Выбрать чат / группу", b("mode_chat"))],
-        [Button.inline("📢 Выбрать канал", b("mode_channel"))],
-        [Button.inline("👤 Выбрать пользователя / бота", b("mode_user"))],
-        [Button.inline("🆔 Мой ID", b("btn_myid"))]
+    # Постоянные кнопки снизу (ReplyKeyboard)
+    reply_markup = [
+        [Button.text("💬 Чат / Группа", resize=True), Button.text("📢 Канал", resize=True)],
+        [Button.text("👤 Пользователь", resize=True), Button.text("🤖 Бот", resize=True)],
+        [Button.text("🆔 Мой ID", resize=True)]
     ]
     await event.respond(
-        "👋 **Привет!** Я помогу узнать возраст любого объекта.\n\n"
-        "Нажми на кнопку ниже, чтобы выбрать объект из списка, или просто перешли сообщение:",
-        buttons=buttons
+        "👋 **Привет!** Я помогу узнать возраст любого объекта в Telegram.\n\n"
+        "Выбери нужный раздел с помощью кнопок внизу, перешли сообщение или отправь `@username` / `ID`:",
+        buttons=reply_markup
     )
-
-@bot.on(events.CallbackQuery)
-async def callback_handler(event):
-    data = event.data.decode('utf-8')
-    
-    if data == "mode_chat":
-        await event.answer()
-        await event.respond(
-            "💬 Чтобы проверить чат или группу, перешли оттуда сообщение сюда или отправь `@username` / `ID`."
-        )
-    elif data == "mode_channel":
-        await event.answer()
-        await event.respond(
-            "📢 Чтобы проверить канал, перешли оттуда сообщение сюда или отправь `@username` / `ID`."
-        )
-    elif data == "mode_user":
-        await event.answer()
-        await event.respond(
-            "👤 Чтобы проверить пользователя или бота, перешли его сообщение сюда или отправь `@username` / `ID`."
-        )
-    elif data == "btn_myid":
-        sender = await event.get_sender()
-        await event.answer(f"Твой ID: {sender.id}", alert=True)
 
 @bot.on(events.NewMessage)
 async def check_age(event):
-    if event.text.startswith('/'):
+    text_msg = event.text.strip()
+    
+    if text_msg.startswith('/'):
+        return  # Игнорируем команды
+
+    # Обработка нажатий на нижние кнопки (чтобы не было ошибок поиска)
+    if text_msg == "💬 Чат / Группа":
+        await event.respond("💬 **Проверка чата/группы:**\nОтправь мне `@username` группы, её `ID` или перешли сообщение из неё.")
+        return
+    elif text_msg == "📢 Канал":
+        await event.respond("📢 **Проверка канала:**\nОтправь мне `@username` канала, его `ID` или перешли сообщение из него.")
+        return
+    elif text_msg == "👤 Пользователь":
+        await event.respond("👤 **Проверка пользователя:**\nОтправь мне `@username` пользователя, его `ID` или перешли его сообщение.")
+        return
+    elif text_msg == "🤖 Бот":
+        await event.respond("🤖 **Проверка бота:**\nОтправь мне `@username` бота (например, `@durov`) или его `ID`.")
+        return
+    elif text_msg == "🆔 Мой ID":
+        # Автоматически берем данные того, кто нажал кнопку
+        sender = await event.get_sender()
+        creation_date = estimate_creation_date_by_id(sender.id)
+        time_alive = get_age_string(creation_date)
+        date_str = creation_date.strftime("%d.%m.%Y в %H:%M UTC")
+        
+        response_text = (
+            f"📊 **Твой аккаунт:**\n\n"
+            f"📌 **Тип:** Пользователь\n"
+            f"🏷 **Имя:** {getattr(sender, 'first_name', 'Не указано')}\n"
+            f"🆔 **ID:** `{sender.id}`\n\n"
+            f"📅 **Дата создания:** приблизительно {date_str}\n"
+            f"⏳ **Существует:** **{time_alive}**"
+        )
+        await event.respond(response_text)
         return
 
-    target = event.text.strip()
+    # Обычный поиск по введенному юзернейму, ID или репосту
+    target = text_msg
     
     if event.fwd_from:
         if event.fwd_from.from_id:
@@ -113,8 +123,6 @@ def estimate_creation_date_by_id(user_id: int):
     else:
         return datetime.datetime(2023, 5, 1, tzinfo=datetime.timezone.utc)
 
-def b(text):
-    return text.encode('utf-8')
-
 print("Бот запущен и ожидает сообщения...")
 bot.run_until_disconnected()
+        
