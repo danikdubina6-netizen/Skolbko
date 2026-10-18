@@ -25,7 +25,6 @@ def get_age_string(creation_date):
 
 @bot.on(events.NewMessage(pattern='/start'))
 async def start_handler(event):
-    # Постоянные кнопки снизу (ReplyKeyboard)
     reply_markup = [
         [Button.text("💬 Чат / Группа", resize=True), Button.text("📢 Канал", resize=True)],
         [Button.text("👤 Пользователь", resize=True), Button.text("🤖 Бот", resize=True)],
@@ -42,9 +41,9 @@ async def check_age(event):
     text_msg = event.text.strip()
     
     if text_msg.startswith('/'):
-        return  # Игнорируем команды
+        return
 
-    # Обработка нажатий на нижние кнопки (чтобы не было ошибок поиска)
+    # Обработка нижних кнопок меню
     if text_msg == "💬 Чат / Группа":
         await event.respond("💬 **Проверка чата/группы:**\nОтправь мне `@username` группы, её `ID` или перешли сообщение из неё.")
         return
@@ -55,10 +54,9 @@ async def check_age(event):
         await event.respond("👤 **Проверка пользователя:**\nОтправь мне `@username` пользователя, его `ID` или перешли его сообщение.")
         return
     elif text_msg == "🤖 Бот":
-        await event.respond("🤖 **Проверка бота:**\nОтправь мне `@username` бота (например, `@durov`) или его `ID`.")
+        await event.respond("🤖 **Проверка бота:**\nОтправь мне `@username` бота или его `ID`.")
         return
     elif text_msg == "🆔 Мой ID":
-        # Автоматически берем данные того, кто нажал кнопку
         sender = await event.get_sender()
         creation_date = estimate_creation_date_by_id(sender.id)
         time_alive = get_age_string(creation_date)
@@ -75,14 +73,17 @@ async def check_age(event):
         await event.respond(response_text)
         return
 
-    # Обычный поиск по введенному юзернейму, ID или репосту
     target = text_msg
     
+    # Безопасное извлечение данных из пересланного сообщения
     if event.fwd_from:
-        if event.fwd_from.from_id:
-            target = event.fwd_from.from_id
-        elif event.fwd_from.from_name:
-            await event.respond("⚠️ Не удалось получить ID из пересланного сообщения (скрытый аккаунт).")
+        fwd = event.fwd_from
+        if getattr(fwd, 'from_id', None):
+            target = fwd.from_id
+        elif getattr(fwd, 'channel_id', None):
+            target = fwd.channel_id
+        elif getattr(fwd, 'from_name', None):
+            await event.respond("⚠️ Этот канал или пользователь имеет скрытый профиль, поэтому получить его данные через пересылку невозможно. Попробуйте отправить `@username` или `ID`.")
             return
 
     try:
@@ -109,7 +110,11 @@ async def check_age(event):
         await event.respond(response_text)
 
     except Exception as e:
-        await event.respond(f"❌ Ошибка: Не удалось найти объект или неверный юзернейм/ID.\n`{e}`")
+        err_str = str(e)
+        if "private" in err_str.lower() or "permissions" in err_str.lower():
+            await event.respond("🔒 **Ошибка:** Этот канал или чат приватный, у бота нет к нему доступа. Отправьте публичный `@username` или `ID`.")
+        else:
+            await event.respond(f"❌ Не удалось найти объект. Проверьте правильность `@username` или `ID`.\n`{e}`")
 
 def estimate_creation_date_by_id(user_id: int):
     if user_id < 100000000:
@@ -125,4 +130,3 @@ def estimate_creation_date_by_id(user_id: int):
 
 print("Бот запущен и ожидает сообщения...")
 bot.run_until_disconnected()
-        
