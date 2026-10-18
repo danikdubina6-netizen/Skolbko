@@ -3,16 +3,13 @@ import datetime
 from telethon import TelegramClient, events, Button
 from dateutil.relativedelta import relativedelta
 
-# Читаем ключи из переменных окружения (GitHub Secrets)
 API_ID = int(os.environ.get("API_ID"))
 API_HASH = os.environ.get("API_HASH")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
-# Инициализируем бота
 bot = TelegramClient('age_checker_bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
 def get_age_string(creation_date):
-    """Вычисляет разницу между созданием и текущим моментом"""
     now = datetime.datetime.now(datetime.timezone.utc)
     delta = relativedelta(now, creation_date)
     
@@ -28,48 +25,49 @@ def get_age_string(creation_date):
 
 @bot.on(events.NewMessage(pattern='/start'))
 async def start_handler(event):
-    # Создаем постоянные кнопки внизу экрана (ReplyKeyboardMarkup)
-    # resize=True делает их аккуратными и не на всю высоту экрана
-    reply_markup = [
-        [Button.text("💬 Чат / Группа", resize=True), Button.text("📢 Канал", resize=True)],
-        [Button.text("👤 Пользователь", resize=True), Button.text("🤖 Бот", resize=True)],
-        [Button.text("🆔 Мой ID", resize=True)]
+    # Кнопки со встроенным выбором через инлайн-режим (открывают меню выбора чатов/ботов)
+    buttons = [
+        [Button.inline("💬 Выбрать чат / группу", b("mode_chat"))],
+        [Button.inline("📢 Выбрать канал", b("mode_channel"))],
+        [Button.inline("👤 Выбрать пользователя / бота", b("mode_user"))],
+        [Button.inline("🆔 Мой ID", b("btn_myid"))]
     ]
-    
     await event.respond(
-        "👋 **Привет!** Я помогу узнать возраст любого объекта в Telegram.\n\n"
-        "Выбери нужный режим с помощью кнопок внизу или просто **перешли мне сообщение** / отправь `@username` / `ID`:",
-        buttons=reply_markup
+        "👋 **Привет!** Я помогу узнать возраст любого объекта.\n\n"
+        "Нажми на кнопку ниже, чтобы выбрать объект из списка, или просто перешли сообщение:",
+        buttons=buttons
     )
+
+@bot.on(events.CallbackQuery)
+async def callback_handler(event):
+    data = event.data.decode('utf-8')
+    
+    if data == "mode_chat":
+        await event.answer()
+        await event.respond(
+            "💬 Чтобы проверить чат или группу, перешли оттуда сообщение сюда или отправь `@username` / `ID`."
+        )
+    elif data == "mode_channel":
+        await event.answer()
+        await event.respond(
+            "📢 Чтобы проверить канал, перешли оттуда сообщение сюда или отправь `@username` / `ID`."
+        )
+    elif data == "mode_user":
+        await event.answer()
+        await event.respond(
+            "👤 Чтобы проверить пользователя или бота, перешли его сообщение сюда или отправь `@username` / `ID`."
+        )
+    elif data == "btn_myid":
+        sender = await event.get_sender()
+        await event.answer(f"Твой ID: {sender.id}", alert=True)
 
 @bot.on(events.NewMessage)
 async def check_age(event):
-    text_msg = event.text.strip()
-    
-    if text_msg.startswith('/'):
-        return  # Игнорируем команды
-
-    # Обработка нажатий на постоянные кнопки снизу
-    if text_msg == "💬 Чат / Группа":
-        await event.respond("💬 Отправь мне `@username` группы, её `ID` или перешли сообщение из неё.")
-        return
-    elif text_msg == "📢 Канал":
-        await event.respond("📢 Отправь мне `@username` канала, его `ID` или перешли сообщение из него.")
-        return
-    elif text_msg == "👤 Пользователь":
-        await event.respond("👤 Отправь мне `@username` пользователя, его `ID` или перешли его сообщение.")
-        return
-    elif text_msg == "🤖 Бот":
-        await event.respond("🤖 Отправь мне `@username` бота или его `ID`.")
-        return
-    elif text_msg == "🆔 Мой ID":
-        sender = await event.get_sender()
-        await event.respond(f"📌 Твой Telegram ID: `{sender.id}`")
+    if event.text.startswith('/'):
         return
 
-    target = text_msg
+    target = event.text.strip()
     
-    # Если переслано сообщение — берём автора/чат из пересылки
     if event.fwd_from:
         if event.fwd_from.from_id:
             target = event.fwd_from.from_id
@@ -79,8 +77,6 @@ async def check_age(event):
 
     try:
         entity = await bot.get_entity(target)
-        
-        # Получаем дату создания
         creation_date = getattr(entity, 'date', None)
 
         if not creation_date:
@@ -116,6 +112,9 @@ def estimate_creation_date_by_id(user_id: int):
         return datetime.datetime(2021, 11, 1, tzinfo=datetime.timezone.utc)
     else:
         return datetime.datetime(2023, 5, 1, tzinfo=datetime.timezone.utc)
+
+def b(text):
+    return text.encode('utf-8')
 
 print("Бот запущен и ожидает сообщения...")
 bot.run_until_disconnected()
